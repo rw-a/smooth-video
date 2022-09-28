@@ -1,7 +1,6 @@
 import ffmpeg
 import numpy as np
 import subprocess
-import PIL.Image
 import torch
 import model.m2m as m2m
 
@@ -23,27 +22,20 @@ netNetwork.load_state_dict(torch.load('./model.pkl'))
 
 
 def interpolate_frame(frame1, frame2):
-    """The M2M Model sits here"""
-    import shutil
-    import os
-
-    os.mkdir('input_frames')
-    os.mkdir('output_frames')
-
+    """The M2M processing happens here"""
     if __name__ == '__main__':
-        npyOne = np.array(PIL.Image.open(f'input_frames/{str(1).zfill(8)}.png'))[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
-        npyTwo = np.array(PIL.Image.open(f'input_frames/{str(2).zfill(8)}.png'))[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
+        frame1_np = frame1[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
+        frame2_np = frame2[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
 
-        tenOne = torch.FloatTensor(np.ascontiguousarray(npyOne.transpose(2, 0, 1)[None, :, :, :])).cuda()
-        tenTwo = torch.FloatTensor(np.ascontiguousarray(npyTwo.transpose(2, 0, 1)[None, :, :, :])).cuda()
+        frame1_tensor = torch.FloatTensor(np.ascontiguousarray(frame1_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
+        frame2_tensor = torch.FloatTensor(np.ascontiguousarray(frame2_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
 
-        tenEstimate = netNetwork(tenOne, tenTwo, [torch.FloatTensor([0.5]).view(1, 1, 1, 1).cuda()])[0]
-        npyEstimate = (tenEstimate.detach().cpu().np()[0, :, :, :].transpose(1, 2, 0) * 255.0).clip(0.0, 255.0).round().astype(np.uint8)
+        interpolated_frame_tensor = \
+            netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([0.5]).view(1, 1, 1, 1).cuda()])[0]
+        interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().np()[0, :, :, :].
+                                 transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(np.uint8)
 
-        img = PIL.Image.fromarray(npyEstimate[:, :, ::-1])  # reverses colour channels to get RGB
-
-        shutil.copy2(f'input_frames/{str(1).zfill(8)}.png', f'output_frames/{str(1).zfill(8)}.png')
-        img.save(f'output_frames/{str(2).zfill(8)}.png', format='png')
+        return interpolated_frame_np
 
 
 def get_video_size(filename):
@@ -109,14 +101,14 @@ def run(in_filename, out_filename):
     previous_frame = read_frame(process1, width, height)
     while True:
         print("Loading frame...")
-        in_frame = read_frame(process1, width, height)
-        if in_frame is None:
+        current_frame = read_frame(process1, width, height)
+        if current_frame is None:
+            write_frame(process2, previous_frame)
             break
-        out_frame = interpolate_frame(previous_frame, in_frame)
+        interpolated_frame = interpolate_frame(previous_frame, current_frame)
         write_frame(process2, previous_frame)
-        write_frame(process2, out_frame)
-        previous_frame = in_frame
-    write_frame(process2, in_frame)
+        write_frame(process2, interpolated_frame)
+        previous_frame = current_frame
 
     process1.wait()
     process2.stdin.close()
