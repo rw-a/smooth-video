@@ -1,13 +1,24 @@
+import subprocess
+import argparse
 import ffmpeg
 import numpy
-import subprocess
 import torch
 import model.m2m as m2m
 
-INPUT_VIDEO = "input.mp4"
-OUTPUT_VIDEO = "output.mp4"
+##########################################################
+"""Options/Args"""
 
+parser = argparse.ArgumentParser()
+
+parser.add_argument('-i', '--input', type=str, required=True)
+parser.add_argument('-o', '--output', type=str, required=True)
+parser.add_argument('-f', '--factor', type=int, default=2)
+
+args = parser.parse_args()
+
+##########################################################
 """Load M2M Model"""
+
 if not torch.cuda.is_available():
     raise Exception("CUDA GPU not detected. CUDA is required.")
 
@@ -19,6 +30,8 @@ torch.backends.cudnn.benchmark = True
 netNetwork = m2m.M2M_PWC().cuda().eval()
 
 netNetwork.load_state_dict(torch.load('./model.pkl'))
+
+##########################################################
 
 
 def interpolate_frame(frame1, frame2):
@@ -114,4 +127,4 @@ def run(in_filename, out_filename):
 
 
 if __name__ == '__main__':
-    run(INPUT_VIDEO, OUTPUT_VIDEO)
+    run(args.input, args.output)
