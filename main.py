@@ -52,6 +52,7 @@ def interpolate_frame(frame1, frame2):
                                  transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(numpy.uint8)
         return interpolated_frame_np
     elif args.factor > 2:
+        frames = []
         for i in range(args.factor - 1):
             interpolated_frame_tensor = \
                 netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([(i + 1) / args.factor]).view(1, 1, 1, 1).
@@ -59,7 +60,8 @@ def interpolate_frame(frame1, frame2):
             interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().numpy()[0, :, :, :].
                                      transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(
                 numpy.uint8)
-            yield interpolated_frame_np
+            frames.append(interpolated_frame_np)
+        return frames
 
 
 def get_video_size(filename):
@@ -117,27 +119,27 @@ def write_frame(process2, frame):
 
 def run(in_filename, out_filename):
     width, height = get_video_size(in_filename)
-    process1 = start_ffmpeg_process_input(in_filename)
-    process2 = start_ffmpeg_process_output(out_filename, width, height)
+    process_input = start_ffmpeg_process_input(in_filename)
+    process_output = start_ffmpeg_process_output(out_filename, width, height)
 
-    previous_frame = read_frame(process1, width, height)
+    previous_frame = read_frame(process_input, width, height)
     while True:
-        write_frame(process2, previous_frame)
+        write_frame(process_output, previous_frame)
         print("Loading frame...")
-        current_frame = read_frame(process1, width, height)
+        current_frame = read_frame(process_input, width, height)
         if current_frame is None:
             break
         if args.factor == 2:
             interpolated_frame = interpolate_frame(previous_frame, current_frame)
-            write_frame(process2, interpolated_frame)
+            write_frame(process_output, interpolated_frame)
         elif args.factor > 2:
             for interpolated_frame in interpolate_frame(previous_frame, current_frame):
-                write_frame(process2, interpolated_frame)
+                write_frame(process_output, interpolated_frame)
         previous_frame = current_frame
 
-    process1.wait()
-    process2.stdin.close()
-    process2.wait()
+    process_input.wait()
+    process_output.stdin.close()
+    process_output.wait()
 
 
 if __name__ == '__main__':
