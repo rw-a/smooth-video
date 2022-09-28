@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('input', type=str, help="Input video name (e.g. input.mp4)")
 parser.add_argument('output', type=str, help="Output video name (e.g. output.mp4)")
 parser.add_argument('-f', '--factor', type=int, default=2, help="Interpolation factor. 2 means double frame rate")
+parser.add_argument('--fps', type=float, default=24, help="FPS of output video")
 
 args = parser.parse_args()
 
@@ -86,6 +87,7 @@ def start_ffmpeg_process_output(out_filename, width, height):
     process_args = (
         ffmpeg
         .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height))
+        .filter('fps', fps=args.fps, round='up')
         .output(out_filename, pix_fmt='yuv420p')
         .overwrite_output()
         .compile()
