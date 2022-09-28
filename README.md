@@ -1,4 +1,4 @@
-# Video Frame Interpolator
+# Smooth Video: A Video Frame Interpolator
 
 ## Introduction
  - Smooths video by interpolating frames (e.g. 24fps → 48fps). 
