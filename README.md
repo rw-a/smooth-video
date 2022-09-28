@@ -12,7 +12,7 @@
 ## Installation
 1. Clone the repository
 ```
-git clone https://github.com/rw-a/video-smoother
+git clone https://github.com/rw-a/smooth-video
 cd video-smoother
 ```
 2. Install required packages
