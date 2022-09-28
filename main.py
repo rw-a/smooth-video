@@ -10,11 +10,14 @@ import model.m2m as m2m
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('-i', '--input', type=str, required=True)
-parser.add_argument('-o', '--output', type=str, required=True)
-parser.add_argument('-f', '--factor', type=int, default=2)
+parser.add_argument('-i', '--input', type=str, required=True, help="Input video name (e.g. input.mp4)")
+parser.add_argument('-o', '--output', type=str, required=True, help="Output video name (e.g. output.mp4)")
+parser.add_argument('-f', '--factor', type=int, default=2, help="Interpolation factor. 2 means double frame rate")
 
 args = parser.parse_args()
+
+if args.factor < 2:
+    raise ValueError('Factor must be an integer more than or equal to 2.')
 
 ##########################################################
 """Load M2M Model"""
@@ -36,19 +39,27 @@ netNetwork.load_state_dict(torch.load('./model.pkl'))
 
 def interpolate_frame(frame1, frame2):
     """The M2M processing happens here"""
-    if __name__ == '__main__':
-        frame1_np = frame1[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
-        frame2_np = frame2[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
+    frame1_np = frame1[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
+    frame2_np = frame2[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
 
-        frame1_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame1_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
-        frame2_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame2_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
+    frame1_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame1_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
+    frame2_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame2_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
 
+    if args.factor == 2:
         interpolated_frame_tensor = \
             netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([0.5]).view(1, 1, 1, 1).cuda()])[0]
         interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().numpy()[0, :, :, :].
                                  transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(numpy.uint8)
-
         return interpolated_frame_np
+    elif args.factor > 2:
+        for i in range(args.factor - 1):
+            interpolated_frame_tensor = \
+                netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([(i + 1) / args.factor]).view(1, 1, 1, 1).
+                           cuda()])[0]
+            interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().numpy()[0, :, :, :].
+                                     transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(
+                numpy.uint8)
+            yield interpolated_frame_np
 
 
 def get_video_size(filename):
@@ -59,25 +70,25 @@ def get_video_size(filename):
     return width, height
 
 
-def start_ffmpeg_process1(in_filename):
-    args = (
+def start_ffmpeg_process_input(in_filename):
+    process_args = (
         ffmpeg
         .input(in_filename)
         .output('pipe:', format='rawvideo', pix_fmt='rgb24')
         .compile()
     )
-    return subprocess.Popen(args, stdout=subprocess.PIPE)
+    return subprocess.Popen(process_args, stdout=subprocess.PIPE)
 
 
-def start_ffmpeg_process2(out_filename, width, height):
-    args = (
+def start_ffmpeg_process_output(out_filename, width, height):
+    process_args = (
         ffmpeg
         .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height))
         .output(out_filename, pix_fmt='yuv420p')
         .overwrite_output()
         .compile()
     )
-    return subprocess.Popen(args, stdin=subprocess.PIPE)
+    return subprocess.Popen(process_args, stdin=subprocess.PIPE)
 
 
 def read_frame(process1, width, height):
@@ -106,19 +117,22 @@ def write_frame(process2, frame):
 
 def run(in_filename, out_filename):
     width, height = get_video_size(in_filename)
-    process1 = start_ffmpeg_process1(in_filename)
-    process2 = start_ffmpeg_process2(out_filename, width, height)
+    process1 = start_ffmpeg_process_input(in_filename)
+    process2 = start_ffmpeg_process_output(out_filename, width, height)
 
     previous_frame = read_frame(process1, width, height)
     while True:
+        write_frame(process2, previous_frame)
         print("Loading frame...")
         current_frame = read_frame(process1, width, height)
         if current_frame is None:
-            write_frame(process2, previous_frame)
             break
-        interpolated_frame = interpolate_frame(previous_frame, current_frame)
-        write_frame(process2, previous_frame)
-        write_frame(process2, interpolated_frame)
+        if args.factor == 2:
+            interpolated_frame = interpolate_frame(previous_frame, current_frame)
+            write_frame(process2, interpolated_frame)
+        elif args.factor > 2:
+            for interpolated_frame in interpolate_frame(previous_frame, current_frame):
+                write_frame(process2, interpolated_frame)
         previous_frame = current_frame
 
     process1.wait()
