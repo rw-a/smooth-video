@@ -10,8 +10,8 @@ import model.m2m as m2m
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('-i', '--input', type=str, required=True, help="Input video name (e.g. input.mp4)")
-parser.add_argument('-o', '--output', type=str, required=True, help="Output video name (e.g. output.mp4)")
+parser.add_argument('input', type=str, required=True, help="Input video name (e.g. input.mp4)")
+parser.add_argument('output', type=str, required=True, help="Output video name (e.g. output.mp4)")
 parser.add_argument('-f', '--factor', type=int, default=2, help="Interpolation factor. 2 means double frame rate")
 
 args = parser.parse_args()
