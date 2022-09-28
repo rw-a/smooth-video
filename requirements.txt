@@ -1,0 +1,5 @@
+numpy
+torch
+ffmpeg-python
+pillow
+cupy
