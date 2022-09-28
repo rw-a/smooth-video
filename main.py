@@ -1,5 +1,5 @@
 import ffmpeg
-import numpy as np
+import numpy
 import subprocess
 import torch
 import model.m2m as m2m
@@ -24,16 +24,16 @@ netNetwork.load_state_dict(torch.load('./model.pkl'))
 def interpolate_frame(frame1, frame2):
     """The M2M processing happens here"""
     if __name__ == '__main__':
-        frame1_np = frame1[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
-        frame2_np = frame2[:, :, ::-1].astype(np.float32) * (1.0 / 255.0)
+        frame1_np = frame1[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
+        frame2_np = frame2[:, :, ::-1].astype(numpy.float32) * (1.0 / 255.0)
 
-        frame1_tensor = torch.FloatTensor(np.ascontiguousarray(frame1_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
-        frame2_tensor = torch.FloatTensor(np.ascontiguousarray(frame2_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
+        frame1_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame1_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
+        frame2_tensor = torch.FloatTensor(numpy.ascontiguousarray(frame2_np.transpose(2, 0, 1)[None, :, :, :])).cuda()
 
         interpolated_frame_tensor = \
             netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([0.5]).view(1, 1, 1, 1).cuda()])[0]
-        interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().np()[0, :, :, :].
-                                 transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(np.uint8)
+        interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().numpy()[0, :, :, :].
+                                 transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(numpy.uint8)
 
         return interpolated_frame_np
 
@@ -47,7 +47,6 @@ def get_video_size(filename):
 
 
 def start_ffmpeg_process1(in_filename):
-    print("Starting ffmpeg process1")
     args = (
         ffmpeg
         .input(in_filename)
@@ -58,7 +57,6 @@ def start_ffmpeg_process1(in_filename):
 
 
 def start_ffmpeg_process2(out_filename, width, height):
-    print("Starting ffmpeg process2")
     args = (
         ffmpeg
         .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height))
@@ -78,8 +76,8 @@ def read_frame(process1, width, height):
     else:
         assert len(in_bytes) == frame_size
         frame = (
-            np
-            .frombuffer(in_bytes, np.uint8)
+            numpy
+            .frombuffer(in_bytes, numpy.uint8)
             .reshape([height, width, 3])
         )
     return frame
@@ -88,7 +86,7 @@ def read_frame(process1, width, height):
 def write_frame(process2, frame):
     process2.stdin.write(
         frame
-        .astype(np.uint8)
+        .astype(numpy.uint8)
         .tobytes()
     )
 
