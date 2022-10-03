@@ -53,16 +53,12 @@ def interpolate_frame(frame1, frame2):
                                  transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(numpy.uint8)
         return interpolated_frame_np
     elif args.factor > 2:
-        frames = []
-        for i in range(args.factor - 1):
-            interpolated_frame_tensor = \
-                netNetwork(frame1_tensor, frame2_tensor, [torch.FloatTensor([(i + 1) / args.factor]).view(1, 1, 1, 1).
-                           cuda()])[0]
-            interpolated_frame_np = (interpolated_frame_tensor.detach().cpu().numpy()[0, :, :, :].
-                                     transpose(1, 2, 0)[:, :, ::-1] * 255.0).clip(0.0, 255.0).round().astype(
-                numpy.uint8)
-            frames.append(interpolated_frame_np)
-        return frames
+        interpolated_frames_tensor = [torch.FloatTensor([step / args.factor]).view(1, 1, 1, 1).cuda()
+                                      for step in range(1, args.factor)]
+        interpolated_frames = netNetwork(frame1_tensor, frame2_tensor, interpolated_frames_tensor, args.factor)
+        interpolated_frames_np = [(frame.detach().cpu().numpy()[0, :, :, :].transpose(1, 2, 0)[:, :, ::-1] * 255.0).
+                                  clip(0.0, 255.0).round().astype(numpy.uint8) for frame in interpolated_frames]
+        return interpolated_frames_np
 
 
 def get_video_size(filename):
