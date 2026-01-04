@@ -1,5 +1,7 @@
 # Smooth Video: A Video Frame Interpolator
 
+> Check out [Smooth Video 2](https://github.com/rw-a/smooth-video-2) for a modern, higher quality model.
+
 ## Introduction
  - Smooths video by interpolating frames (e.g. 24fps → 48fps). 
  - Useful for making cinematic slow-mo footage.
